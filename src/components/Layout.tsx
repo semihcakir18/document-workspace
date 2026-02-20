@@ -5,13 +5,17 @@
  * Right: AI chat panel
  */
 
+import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import DocumentList from '../features/documents/DocumentList';
 import DocumentViewer from '../features/documents/DocumentViewer';
-import ChatPanel from '../features/ai/ChatPanel';
+import RightSidebar from '../components/RightSidebar';
+import Settings from './Settings';
+import '../styles/Layout.css';
 
 export default function Layout() {
   const { showDocumentList, showChat, selectedDocument, error, setError } = useStore();
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="layout">
@@ -45,6 +49,13 @@ export default function Layout() {
             >
               💬
             </button>
+            <button
+              className="icon-button"
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+            >
+              ⚙️
+            </button>
           </div>
         </div>
       </header>
@@ -73,13 +84,16 @@ export default function Layout() {
           )}
         </main>
 
-        {/* Right sidebar - Chat panel */}
+        {/* Right sidebar - Chat & Annotations */}
         {showChat && (
           <aside className="sidebar sidebar-right">
-            <ChatPanel />
+            <RightSidebar />
           </aside>
         )}
       </div>
+
+      {/* Settings modal */}
+      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

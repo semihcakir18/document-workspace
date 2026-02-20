@@ -7,10 +7,12 @@ import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore } from '../../store/useStore';
-import { getMessagesByDocument, saveMessage, getChunksByDocument } from '../../services/db';
+import { getMessagesByDocument, saveMessage, getAllDocuments } from '../../services/db';
+import { getChunksByDocument } from '../../services/db';
 import { streamChatWithContext } from '../../services/aiService';
 import { findRelevantChunks } from '../../services/searchService';
 import Citations from '../../components/Citations';
+import './ChatPanel.css';
 import type { ChatMessage, DocumentChunk } from '../../types/index';
 
 export default function ChatPanel() {
@@ -76,14 +78,23 @@ export default function ChatPanel() {
     setIsStreaming(true);
 
     try {
-      // Get all chunks for this document
-      const docChunks = await getChunksByDocument(selectedDocument.id);
-      setAllChunks(docChunks);
+      // Get all documents and their chunks
+      console.log('🔎 Loading chunks from ALL documents for search...');
+      const allDocuments = await getAllDocuments();
+      console.log(`📚 Found ${allDocuments.length} total documents`);
 
-      // Find relevant chunks using keyword search
-      const relevantChunks = findRelevantChunks(userQuestion, docChunks, 5);
+      // Load chunks from all documents
+      const allChunksPromises = allDocuments.map(doc => getChunksByDocument(doc.id));
+      const chunksArrays = await Promise.all(allChunksPromises);
+      const allDocChunks = chunksArrays.flat();
 
-      console.log(`Found ${relevantChunks.length} relevant chunks for query`);
+      console.log(`📄 Loaded ${allDocChunks.length} total chunks across all documents`);
+      setAllChunks(allDocChunks);
+
+      // Find relevant chunks using keyword search across ALL documents
+      const relevantChunks = findRelevantChunks(userQuestion, allDocChunks, 5);
+
+      console.log(`\n✨ Found ${relevantChunks.length} relevant chunks for query across all documents`);
 
       // Create placeholder message for streaming
       const assistantId = crypto.randomUUID();
@@ -170,6 +181,7 @@ export default function ChatPanel() {
         <div className="chat-empty">
           <span className="chat-empty-icon">💬</span>
           <p>Select a document to start chatting</p>
+          <p className="text-muted">AI will search across all your documents</p>
         </div>
       </div>
     );
@@ -199,8 +211,9 @@ export default function ChatPanel() {
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="chat-welcome">
-            <p>Ask questions about {selectedDocument.name}</p>
-            <p className="text-muted">I'll use the document content to provide accurate answers.</p>
+            <p>Ask questions about your documents</p>
+            <p className="text-muted">I'll search across all your documents to provide accurate answers.</p>
+            <p className="text-muted">Conversation history is saved to: {selectedDocument.name}</p>
           </div>
         ) : (
           messages.map((msg) => {

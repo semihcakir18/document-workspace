@@ -184,16 +184,25 @@ export async function getEmbedding(chunkId: string): Promise<EmbeddingCache | un
   return db.get('embeddings', chunkId);
 }
 
-export async function clearOldEmbeddings(maxAge: number = 7 * 24 * 60 * 60 * 1000): Promise<void> {
+export async function clearOldEmbeddings(maxCount: number = 1000): Promise<void> {
   const db = await getDB();
-  const cutoffDate = new Date(Date.now() - maxAge);
   const tx = db.transaction('embeddings', 'readwrite');
   const index = tx.store.index('by-cached-at');
 
-  let cursor = await index.openCursor(IDBKeyRange.upperBound(cutoffDate));
-  while (cursor) {
-    await cursor.delete();
-    cursor = await cursor.continue();
+  // Get all embeddings sorted by date (oldest first)
+  const allEmbeddings = await index.getAll();
+
+  // If we have more than maxCount, delete the oldest ones
+  if (allEmbeddings.length > maxCount) {
+    const toDelete = allEmbeddings.length - maxCount;
+    let cursor = await index.openCursor();
+    let deleted = 0;
+
+    while (cursor && deleted < toDelete) {
+      await cursor.delete();
+      deleted++;
+      cursor = await cursor.continue();
+    }
   }
 
   await tx.done;

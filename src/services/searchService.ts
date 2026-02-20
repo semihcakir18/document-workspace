@@ -40,6 +40,8 @@ export function findRelevantChunks(
   chunks: DocumentChunk[],
   topK: number = 5
 ): DocumentChunk[] {
+  console.log(`\n🔍 Searching ${chunks.length} chunks for query: "${query}"`);
+
   // Score all chunks
   const scored = chunks.map(chunk => ({
     chunk,
@@ -49,9 +51,27 @@ export function findRelevantChunks(
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
 
+  // Log detailed scoring information
+  console.log('\n📊 Top 10 chunk scores:');
+  scored.slice(0, 10).forEach((item, idx) => {
+    console.log(
+      `  ${idx + 1}. Score: ${item.score} | Page: ${item.chunk.pageNumber} | ` +
+      `Text preview: "${item.chunk.text.slice(0, 80)}..."`
+    );
+  });
+
   // Return top K chunks that have non-zero scores
-  return scored
+  const topChunks = scored
     .filter(item => item.score > 0)
-    .slice(0, topK)
-    .map(item => item.chunk);
+    .slice(0, topK);
+
+  console.log(`\n✅ Selected ${topChunks.length} chunks with scores:`,
+    topChunks.map(item => ({
+      score: item.score,
+      page: item.chunk.pageNumber,
+      chunkId: item.chunk.id
+    }))
+  );
+
+  return topChunks.map(item => item.chunk);
 }

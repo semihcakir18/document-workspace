@@ -185,16 +185,32 @@ export async function streamChatWithContext(
 ): Promise<void> {
   const { key, provider } = await getAPIKey();
 
+  console.log('\n🤖 Preparing AI request...');
+  console.log(`📝 Provider: ${provider.toUpperCase()}`);
+  console.log(`💬 User message: "${userMessage}"`);
+  console.log(`📚 Including ${relevantChunks.length} relevant chunks in context`);
+
   // Build context from relevant chunks
   const context = relevantChunks
-    .map((chunk, idx) => `[Chunk ${idx + 1} - Page ${chunk.pageNumber}]\n${chunk.text}`)
+    .map((chunk, idx) => {
+      const preview = chunk.text.slice(0, 100).replace(/\n/g, ' ');
+      console.log(`  📄 Chunk ${idx + 1}: Page ${chunk.pageNumber} - "${preview}..."`);
+      return `[Chunk ${idx + 1} - Page ${chunk.pageNumber}]\n${chunk.text}`;
+    })
     .join('\n\n');
+
+  const contextLength = context.length;
+  const estimatedTokens = Math.ceil(contextLength / 4); // Rough estimate: 1 token ≈ 4 chars
+  console.log(`\n📊 Context stats:`);
+  console.log(`  • Characters: ${contextLength}`);
+  console.log(`  • Estimated tokens: ~${estimatedTokens}`);
+  console.log(`  • Conversation history: ${conversationHistory.length} messages`);
 
   // Build messages
   const messages = [
     {
       role: 'system',
-      content: `You are a helpful AI assistant analyzing a document. Use the provided document excerpts to answer questions accurately. If the answer isn't in the provided context, say so.
+      content: `You are a helpful AI assistant analyzing documents. Use the provided document excerpts to answer questions accurately. If the answer isn't in the provided context, say so.
 
 Document Context:
 ${context}`,
@@ -206,10 +222,14 @@ ${context}`,
     },
   ];
 
+  console.log(`\n🚀 Sending request to ${provider.toUpperCase()} API...`);
+
   // Stream based on provider
   if (provider === 'openai') {
     await streamOpenAI(messages, key, callbacks);
   } else {
     await streamAnthropic(messages, key, callbacks);
   }
+
+  console.log('✅ AI response completed\n');
 }

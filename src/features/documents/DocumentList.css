@@ -1,0 +1,123 @@
+/* Document List Styles */
+
+.document-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.document-list-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.document-list-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.upload-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.upload-button:hover:not(.uploading) {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.upload-button.uploading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.document-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+}
+
+.empty-message p:first-child {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+}
+
+.document-item:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.document-item.active {
+  background: var(--bg-tertiary);
+  border-color: var(--primary-color);
+}
+
+.document-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-meta {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.document-item:hover .delete-button {
+  opacity: 0.6;
+}
+
+.delete-button:hover {
+  opacity: 1 !important;
+}

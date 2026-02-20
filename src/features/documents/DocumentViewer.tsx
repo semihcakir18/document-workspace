@@ -5,17 +5,27 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { getChunksByDocument } from '../../services/db';
-import type { DocumentChunk } from '../../types/index';
+import { getChunksByDocument, getAnnotationsByDocument } from '../../services/db';
+import AnnotationCreator from '../../components/AnnotationCreator';
+import './DocumentViewer.css';
+import type { DocumentChunk, Annotation } from '../../types/index';
 
 export default function DocumentViewer() {
   const { selectedDocument, highlightedChunkIds } = useStore();
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [showAnnotationCreator, setShowAnnotationCreator] = useState(false);
+  const [selectionData, setSelectionData] = useState<{
+    text: string;
+    chunkId: string;
+    position: { x: number; y: number };
+  } | null>(null);
 
   useEffect(() => {
     if (selectedDocument) {
       loadDocumentChunks();
+      loadAnnotations();
     }
   }, [selectedDocument]);
 
@@ -40,6 +50,90 @@ export default function DocumentViewer() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAnnotations = async () => {
+    if (!selectedDocument) return;
+    try {
+      const annots = await getAnnotationsByDocument(selectedDocument.id);
+      setAnnotations(annots);
+    } catch (error) {
+      console.error('Failed to load annotations:', error);
+    }
+  };
+
+  const handleTextSelection = (chunkId: string) => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+
+    if (selectedText && selectedText.length > 0) {
+      const range = selection?.getRangeAt(0);
+      const rect = range?.getBoundingClientRect();
+
+      if (rect) {
+        setSelectionData({
+          text: selectedText,
+          chunkId,
+          position: {
+            x: rect.left + rect.width / 2,
+            y: rect.top - 10,
+          },
+        });
+        setShowAnnotationCreator(true);
+      }
+    }
+  };
+
+  const handleAnnotationCreated = async () => {
+    await loadAnnotations();
+    window.getSelection()?.removeAllRanges();
+  };
+
+  // Render text with annotation highlights
+  const renderTextWithAnnotations = (text: string, chunkAnnotations: Annotation[]) => {
+    if (chunkAnnotations.length === 0) {
+      return text;
+    }
+
+    // For simplicity, just wrap the entire selected text in a highlight
+    // In a production app, you'd want more sophisticated text matching
+    const segments: JSX.Element[] = [];
+    let lastIndex = 0;
+
+    chunkAnnotations.forEach((annotation, idx) => {
+      if (!annotation.selectedText) return;
+
+      const matchIndex = text.indexOf(annotation.selectedText, lastIndex);
+      if (matchIndex !== -1) {
+        // Add text before the match
+        if (matchIndex > lastIndex) {
+          segments.push(
+            <span key={`text-${idx}`}>{text.slice(lastIndex, matchIndex)}</span>
+          );
+        }
+
+        // Add highlighted text
+        segments.push(
+          <mark
+            key={`mark-${idx}`}
+            className="annotation-highlight"
+            style={{ background: annotation.color }}
+            title={annotation.note || 'Highlight'}
+          >
+            {annotation.selectedText}
+          </mark>
+        );
+
+        lastIndex = matchIndex + annotation.selectedText.length;
+      }
+    });
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      segments.push(<span key="text-end">{text.slice(lastIndex)}</span>);
+    }
+
+    return segments.length > 0 ? segments : text;
   };
 
   // Remove overlapping text from chunks for display purposes
@@ -114,22 +208,46 @@ export default function DocumentViewer() {
               if (!displayText) return null;
 
               const isHighlighted = highlightedChunkIds.includes(chunk.id);
+              const chunkAnnotations = annotations.filter(a => a.chunkId === chunk.id && a.type === 'highlight');
 
               return (
                 <div
                   key={chunk.id}
                   className={`text-chunk ${isHighlighted ? 'highlighted' : ''}`}
                   data-chunk-id={chunk.id}
+                  onMouseUp={() => handleTextSelection(chunk.id)}
                 >
                   <span className="page-number">Page {chunk.pageNumber}</span>
-                  <p style={{ whiteSpace: 'pre-wrap' }}>{displayText}</p>
+                  <p style={{ whiteSpace: 'pre-wrap', position: 'relative' }}>
+                    {renderTextWithAnnotations(displayText, chunkAnnotations)}
+                  </p>
                   {isHighlighted && <div className="highlight-badge">Referenced</div>}
+                  {chunkAnnotations.length > 0 && (
+                    <div className="chunk-annotations">
+                      {chunkAnnotations.length} annotation{chunkAnnotations.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Annotation creator */}
+      {showAnnotationCreator && selectionData && (
+        <AnnotationCreator
+          documentId={selectedDocument.id}
+          chunkId={selectionData.chunkId}
+          selectedText={selectionData.text}
+          position={selectionData.position}
+          onClose={() => {
+            setShowAnnotationCreator(false);
+            setSelectionData(null);
+          }}
+          onCreated={handleAnnotationCreated}
+        />
+      )}
     </div>
   );
 }

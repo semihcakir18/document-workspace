@@ -8,6 +8,7 @@ import { useStore } from '../../store/useStore';
 import { getAllDocuments, deleteDocument, saveDocument, saveChunks } from '../../services/db';
 import { parsePDF } from '../../services/pdfParser';
 import type { Document } from '../../types/index';
+import './DocumentList.css';
 
 export default function DocumentList() {
   const [documents, setDocuments] = useState<Document[]>([]);

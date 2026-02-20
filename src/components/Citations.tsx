@@ -4,6 +4,7 @@
  */
 
 import { useStore } from '../store/useStore';
+import './Citations.css';
 import type { DocumentChunk } from '../types/index';
 
 interface CitationsProps {

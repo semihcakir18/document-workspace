@@ -91,8 +91,8 @@ export default function ChatPanel() {
       console.log(`📄 Loaded ${allDocChunks.length} total chunks across all documents`);
       setAllChunks(allDocChunks);
 
-      // Find relevant chunks using keyword search across ALL documents
-      const relevantChunks = findRelevantChunks(userQuestion, allDocChunks, 5);
+      // Find relevant chunks using vector similarity search across ALL documents
+      const relevantChunks = await findRelevantChunks(userQuestion, allDocChunks, 5);
 
       console.log(`\n✨ Found ${relevantChunks.length} relevant chunks for query across all documents`);
 

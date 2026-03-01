@@ -1,13 +1,13 @@
 /**
  * AI Chat panel component
- * Handles chat interface and AI interactions
+ * Handles chat interface and AI interactions (Group-specific)
  */
 
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore } from '../../store/useStore';
-import { getMessagesByDocument, saveMessage, getAllDocuments } from '../../services/db';
+import { getMessagesByGroup, saveMessage, getDocumentsByGroup } from '../../services/db';
 import { getChunksByDocument } from '../../services/db';
 import { streamChatWithContext } from '../../services/aiService';
 import { findRelevantChunks } from '../../services/searchService';
@@ -16,7 +16,7 @@ import './ChatPanel.css';
 import type { ChatMessage, DocumentChunk } from '../../types/index';
 
 export default function ChatPanel() {
-  const { selectedDocument, hasAPIKey } = useStore();
+  const { selectedGroup, hasAPIKey } = useStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -25,30 +25,36 @@ export default function ChatPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (selectedDocument) {
+    if (selectedGroup) {
       loadMessages();
     } else {
       setMessages([]);
     }
-  }, [selectedDocument]);
+  }, [selectedGroup]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const loadMessages = async () => {
-    if (!selectedDocument) return;
-    const msgs = await getMessagesByDocument(selectedDocument.id);
+    if (!selectedGroup) return;
+
+    // Load messages for this group
+    const msgs = await getMessagesByGroup(selectedGroup.id);
     setMessages(msgs);
 
-    // Load all chunks and build message-chunk map
-    const docChunks = await getChunksByDocument(selectedDocument.id);
-    setAllChunks(docChunks);
+    // Load all chunks from all documents in this group
+    const groupDocs = await getDocumentsByGroup(selectedGroup.id);
+    const allChunksPromises = groupDocs.map(doc => getChunksByDocument(doc.id));
+    const chunksArrays = await Promise.all(allChunksPromises);
+    const groupChunks = chunksArrays.flat();
+
+    setAllChunks(groupChunks);
 
     const chunksMap = new Map<string, DocumentChunk[]>();
     for (const msg of msgs) {
       if (msg.role === 'assistant' && msg.chunkIds) {
-        const msgChunks = docChunks.filter(c => msg.chunkIds?.includes(c.id));
+        const msgChunks = groupChunks.filter(c => msg.chunkIds?.includes(c.id));
         chunksMap.set(msg.id, msgChunks);
       }
     }
@@ -61,12 +67,12 @@ export default function ChatPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !selectedDocument || !hasAPIKey) return;
+    if (!input.trim() || !selectedGroup || !hasAPIKey) return;
 
     const userQuestion = input.trim();
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
-      documentId: selectedDocument.id,
+      groupId: selectedGroup.id,
       role: 'user',
       content: userQuestion,
       timestamp: new Date(),
@@ -78,23 +84,22 @@ export default function ChatPanel() {
     setIsStreaming(true);
 
     try {
-      // Get all documents and their chunks
-      console.log('🔎 Loading chunks from ALL documents for search...');
-      const allDocuments = await getAllDocuments();
-      console.log(`📚 Found ${allDocuments.length} total documents`);
+      // Load all chunks from documents in this group
+      console.log(`🔎 Loading chunks from group: "${selectedGroup.name}"`);
+      const groupDocs = await getDocumentsByGroup(selectedGroup.id);
+      console.log(`📚 Found ${groupDocs.length} documents in group`);
 
-      // Load chunks from all documents
-      const allChunksPromises = allDocuments.map(doc => getChunksByDocument(doc.id));
+      const allChunksPromises = groupDocs.map(doc => getChunksByDocument(doc.id));
       const chunksArrays = await Promise.all(allChunksPromises);
-      const allDocChunks = chunksArrays.flat();
+      const groupChunks = chunksArrays.flat();
 
-      console.log(`📄 Loaded ${allDocChunks.length} total chunks across all documents`);
-      setAllChunks(allDocChunks);
+      console.log(`📄 Loaded ${groupChunks.length} total chunks from group`);
+      setAllChunks(groupChunks);
 
-      // Find relevant chunks using vector similarity search across ALL documents
-      const relevantChunks = await findRelevantChunks(userQuestion, allDocChunks, 5);
+      // Find relevant chunks using vector similarity search within this group
+      const relevantChunks = await findRelevantChunks(userQuestion, groupChunks, 5);
 
-      console.log(`\n✨ Found ${relevantChunks.length} relevant chunks for query across all documents`);
+      console.log(`\n✨ Found ${relevantChunks.length} relevant chunks for query within group`);
 
       // Create placeholder message for streaming
       const assistantId = crypto.randomUUID();
@@ -105,7 +110,7 @@ export default function ChatPanel() {
         ...prev,
         {
           id: assistantId,
-          documentId: selectedDocument.id,
+          groupId: selectedGroup.id,
           role: 'assistant',
           content: '',
           timestamp: new Date(),
@@ -135,7 +140,7 @@ export default function ChatPanel() {
           onComplete: async (fullText) => {
             const finalMessage: ChatMessage = {
               id: assistantId,
-              documentId: selectedDocument.id,
+              groupId: selectedGroup.id,
               role: 'assistant',
               content: fullText,
               timestamp: new Date(),
@@ -165,7 +170,7 @@ export default function ChatPanel() {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        documentId: selectedDocument.id,
+        groupId: selectedGroup.id,
         role: 'assistant',
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date(),
@@ -175,13 +180,13 @@ export default function ChatPanel() {
     }
   };
 
-  if (!selectedDocument) {
+  if (!selectedGroup) {
     return (
       <div className="chat-panel">
         <div className="chat-empty">
           <span className="chat-empty-icon">💬</span>
-          <p>Select a document to start chatting</p>
-          <p className="text-muted">AI will search across all your documents</p>
+          <p>Select a group to start chatting</p>
+          <p className="text-muted">AI will search within the selected group</p>
         </div>
       </div>
     );
@@ -202,7 +207,7 @@ export default function ChatPanel() {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <h3>AI Assistant</h3>
+        <h3>💬 {selectedGroup.name}</h3>
         <span className="chat-status">
           {isStreaming ? '⏳ Thinking...' : '✓ Ready'}
         </span>
@@ -211,9 +216,8 @@ export default function ChatPanel() {
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="chat-welcome">
-            <p>Ask questions about your documents</p>
-            <p className="text-muted">I'll search across all your documents to provide accurate answers.</p>
-            <p className="text-muted">Conversation history is saved to: {selectedDocument.name}</p>
+            <p>Ask questions about "{selectedGroup.name}"</p>
+            <p className="text-muted">I'll search across all documents in this group to provide accurate answers.</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -251,7 +255,7 @@ export default function ChatPanel() {
         <input
           type="text"
           className="chat-input"
-          placeholder="Ask a question about the document..."
+          placeholder="Ask a question about this group..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isStreaming}

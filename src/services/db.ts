@@ -4,14 +4,19 @@
 
 import { openDB } from 'idb';
 import type { IDBPDatabase } from 'idb';
-import type { Document, DocumentChunk, ChatMessage, Annotation, EmbeddingCache } from '../types/index';
+import type { Document, DocumentChunk, ChatMessage, Annotation, EmbeddingCache, Group } from '../types/index';
 
 // Define database schema without DBSchema interface (idb v8 compatibility)
 interface AIDocumentDB {
+  groups: {
+    key: string;
+    value: Group;
+    indexes: { 'by-date': Date };
+  };
   documents: {
     key: string;
     value: Document;
-    indexes: { 'by-date': Date };
+    indexes: { 'by-date': Date; 'by-group': string | null };
   };
   chunks: {
     key: string;
@@ -21,7 +26,7 @@ interface AIDocumentDB {
   messages: {
     key: string;
     value: ChatMessage;
-    indexes: { 'by-document': string; 'by-timestamp': Date };
+    indexes: { 'by-group': string; 'by-timestamp': Date };
   };
   annotations: {
     key: string;
@@ -36,7 +41,7 @@ interface AIDocumentDB {
 }
 
 const DB_NAME = 'ai-document-workspace';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbInstance: IDBPDatabase<AIDocumentDB> | null = null;
 
@@ -49,11 +54,24 @@ export async function getDB(): Promise<IDBPDatabase<AIDocumentDB>> {
   }
 
   dbInstance = await openDB<AIDocumentDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion, newVersion, transaction) {
+      // Groups store (v2)
+      if (!db.objectStoreNames.contains('groups')) {
+        const groupStore = db.createObjectStore('groups', { keyPath: 'id' });
+        groupStore.createIndex('by-date', 'createdAt');
+      }
+
       // Documents store
       if (!db.objectStoreNames.contains('documents')) {
         const documentStore = db.createObjectStore('documents', { keyPath: 'id' });
         documentStore.createIndex('by-date', 'uploadedAt');
+        documentStore.createIndex('by-group', 'groupId');
+      } else if (oldVersion < 2) {
+        // Add groupId index for existing documents store
+        const documentStore = transaction.objectStore('documents');
+        if (!documentStore.indexNames.contains('by-group')) {
+          documentStore.createIndex('by-group', 'groupId');
+        }
       }
 
       // Chunks store
@@ -65,7 +83,13 @@ export async function getDB(): Promise<IDBPDatabase<AIDocumentDB>> {
       // Messages store
       if (!db.objectStoreNames.contains('messages')) {
         const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
-        messageStore.createIndex('by-document', 'documentId');
+        messageStore.createIndex('by-group', 'groupId');
+        messageStore.createIndex('by-timestamp', 'timestamp');
+      } else if (oldVersion < 2) {
+        // Recreate messages store with new index
+        db.deleteObjectStore('messages');
+        const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
+        messageStore.createIndex('by-group', 'groupId');
         messageStore.createIndex('by-timestamp', 'timestamp');
       }
 
@@ -104,7 +128,18 @@ export async function getAllDocuments(): Promise<Document[]> {
 
 export async function deleteDocument(id: string): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(['documents', 'chunks', 'messages', 'annotations'], 'readwrite');
+
+  // Remove document from group if it belongs to one
+  const doc = await db.get('documents', id);
+  if (doc && doc.groupId) {
+    const group = await db.get('groups', doc.groupId);
+    if (group) {
+      group.documentIds = group.documentIds.filter((docId: string) => docId !== id);
+      await db.put('groups', group);
+    }
+  }
+
+  const tx = db.transaction(['documents', 'chunks', 'annotations'], 'readwrite');
 
   await Promise.all([
     tx.objectStore('documents').delete(id),
@@ -112,11 +147,6 @@ export async function deleteDocument(id: string): Promise<void> {
     (async () => {
       const chunks = await tx.objectStore('chunks').index('by-document').getAllKeys(id);
       await Promise.all(chunks.map(key => tx.objectStore('chunks').delete(key)));
-    })(),
-    // Delete all related messages
-    (async () => {
-      const messages = await tx.objectStore('messages').index('by-document').getAllKeys(id);
-      await Promise.all(messages.map(key => tx.objectStore('messages').delete(key)));
     })(),
     // Delete all related annotations
     (async () => {
@@ -208,12 +238,94 @@ export async function clearOldEmbeddings(maxCount: number = 1000): Promise<void>
   await tx.done;
 }
 
+// Group operations
+export async function saveGroup(group: Group): Promise<void> {
+  const db = await getDB();
+  await db.put('groups', group);
+}
+
+export async function getGroup(id: string): Promise<Group | undefined> {
+  const db = await getDB();
+  return db.get('groups', id);
+}
+
+export async function getAllGroups(): Promise<Group[]> {
+  const db = await getDB();
+  const groups = await db.getAll('groups');
+  return groups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['groups', 'documents', 'messages'], 'readwrite');
+
+  // Remove group
+  await tx.objectStore('groups').delete(id);
+
+  // Unassign documents from this group
+  const documents = await tx.objectStore('documents').index('by-group').getAll(id);
+  for (const doc of documents) {
+    doc.groupId = null;
+    await tx.objectStore('documents').put(doc);
+  }
+
+  // Delete all messages for this group
+  const messages = await tx.objectStore('messages').index('by-group').getAllKeys(id);
+  await Promise.all(messages.map(key => tx.objectStore('messages').delete(key)));
+
+  await tx.done;
+}
+
+export async function addDocumentToGroup(documentId: string, groupId: string): Promise<void> {
+  const db = await getDB();
+  const doc = await db.get('documents', documentId);
+  if (doc) {
+    doc.groupId = groupId;
+    await db.put('documents', doc);
+
+    // Update group's documentIds
+    const group = await db.get('groups', groupId);
+    if (group && !group.documentIds.includes(documentId)) {
+      group.documentIds.push(documentId);
+      await db.put('groups', group);
+    }
+  }
+}
+
+export async function removeDocumentFromGroup(documentId: string): Promise<void> {
+  const db = await getDB();
+  const doc = await db.get('documents', documentId);
+  if (doc && doc.groupId) {
+    const groupId = doc.groupId;
+    doc.groupId = null;
+    await db.put('documents', doc);
+
+    // Update group's documentIds
+    const group = await db.get('groups', groupId);
+    if (group) {
+      group.documentIds = group.documentIds.filter((id: string) => id !== documentId);
+      await db.put('groups', group);
+    }
+  }
+}
+
+export async function getDocumentsByGroup(groupId: string): Promise<Document[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('documents', 'by-group', groupId);
+}
+
+export async function getMessagesByGroup(groupId: string): Promise<ChatMessage[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('messages', 'by-group', groupId);
+}
+
 // Clear all data
 export async function clearAllData(): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(['documents', 'chunks', 'messages', 'annotations', 'embeddings'], 'readwrite');
+  const tx = db.transaction(['groups', 'documents', 'chunks', 'messages', 'annotations', 'embeddings'], 'readwrite');
 
   await Promise.all([
+    tx.objectStore('groups').clear(),
     tx.objectStore('documents').clear(),
     tx.objectStore('chunks').clear(),
     tx.objectStore('messages').clear(),

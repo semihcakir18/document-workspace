@@ -3,10 +3,11 @@
  */
 
 import { create } from 'zustand';
-import type { Document, AppSettings } from '../types/index';
+import type { Document, Group, AppSettings } from '../types/index';
 
 interface AppState {
   // Current state
+  selectedGroup: Group | null;
   selectedDocument: Document | null;
   isLoading: boolean;
   error: string | null;
@@ -26,6 +27,7 @@ interface AppState {
   highlightedChunkIds: string[];
 
   // Actions
+  setSelectedGroup: (group: Group | null) => void;
   setSelectedDocument: (document: Document | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -48,6 +50,7 @@ const defaultSettings: AppSettings = {
 
 export const useStore = create<AppState>((set) => ({
   // Initial state
+  selectedGroup: null,
   selectedDocument: null,
   isLoading: false,
   error: null,
@@ -59,6 +62,7 @@ export const useStore = create<AppState>((set) => ({
   highlightedChunkIds: [],
 
   // Actions
+  setSelectedGroup: (group) => set({ selectedGroup: group }),
   setSelectedDocument: (document) => set({ selectedDocument: document }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),

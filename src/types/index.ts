@@ -1,5 +1,13 @@
 // Core types for the AI Document Workspace
 
+export interface Group {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: Date;
+  documentIds: string[];
+}
+
 export interface Document {
   id: string;
   name: string;
@@ -8,6 +16,7 @@ export interface Document {
   uploadedAt: Date;
   lastModified: Date;
   pageCount?: number;
+  groupId?: string | null;
 }
 
 export interface DocumentChunk {
@@ -23,7 +32,7 @@ export interface DocumentChunk {
 
 export interface ChatMessage {
   id: string;
-  documentId: string;
+  groupId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;

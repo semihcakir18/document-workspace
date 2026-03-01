@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import DocumentList from '../features/documents/DocumentList';
+import GroupList from '../features/documents/GroupList';
 import DocumentViewer from '../features/documents/DocumentViewer';
 import RightSidebar from '../components/RightSidebar';
 import Settings from './Settings';
@@ -62,10 +62,10 @@ export default function Layout() {
 
       {/* Main content area */}
       <div className="main-content">
-        {/* Left sidebar - Document list */}
+        {/* Left sidebar - Group list */}
         {showDocumentList && (
           <aside className="sidebar sidebar-left">
-            <DocumentList />
+            <GroupList />
           </aside>
         )}
 

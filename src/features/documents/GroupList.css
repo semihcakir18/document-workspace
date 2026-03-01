@@ -1,0 +1,253 @@
+/* Group List Styles */
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.group-list-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.group-list-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Upload button */
+.upload-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.upload-button:hover:not(.uploading) {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.upload-button.uploading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.groups-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+/* Create group button */
+.create-group-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.create-group-button:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--bg-secondary);
+}
+
+/* New group form */
+.new-group-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.new-group-form input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.new-group-form button {
+  padding: 0.5rem 1rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.new-group-form button:last-child {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Group item */
+.group-item {
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  background: var(--bg-secondary);
+  transition: all 0.2s;
+}
+
+.group-item.selected {
+  border-color: var(--primary-color);
+  background: var(--bg-primary);
+}
+
+.group-item:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.expand-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.25rem;
+  transition: transform 0.2s;
+}
+
+.group-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.group-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Group documents */
+.group-documents {
+  padding: 0.5rem;
+  padding-left: 2rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.group-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  margin: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Document item (reused from DocumentList) */
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: move;
+  transition: all 0.2s;
+  margin-bottom: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.document-item:hover {
+  background: var(--bg-tertiary);
+  box-shadow: var(--shadow-sm);
+}
+
+.document-item:active {
+  cursor: grabbing;
+  opacity: 0.5;
+}
+
+.document-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+}
+
+.document-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* Ungrouped section */
+.ungrouped-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 2px dashed var(--border-color);
+}
+
+.ungrouped-header {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.document-items {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Drag states */
+.group-item:has(.document-item[draggable="true"]:hover) {
+  border-color: var(--primary-color);
+  background: var(--bg-primary);
+}
+
+.ungrouped-section[draggable="true"]:hover {
+  border-color: var(--primary-color);
+}

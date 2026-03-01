@@ -43,6 +43,7 @@ export default function GroupList() {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [draggedDoc, setDraggedDoc] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   useEffect(() => {
     loadGroupsAndDocuments();
@@ -52,27 +53,18 @@ export default function GroupList() {
     const allGroups = await getAllGroups();
     const allDocs = await getAllDocuments();
 
-    // Sync group documentIds with actual documents and delete empty groups
+    // Sync group documentIds with actual documents
     const updatedGroups: Group[] = [];
     for (const group of allGroups) {
       const groupDocs = allDocs.filter(doc => doc.groupId === group.id);
 
-      if (groupDocs.length === 0) {
-        // Delete empty groups
-        console.log(`Deleting empty group: ${group.name}`);
-        await deleteGroup(group.id);
-        if (selectedGroup?.id === group.id) {
-          setSelectedGroup(null);
-        }
-      } else {
-        // Sync documentIds
-        const actualDocIds = groupDocs.map(d => d.id);
-        if (JSON.stringify(group.documentIds.sort()) !== JSON.stringify(actualDocIds.sort())) {
-          group.documentIds = actualDocIds;
-          await saveGroup(group);
-        }
-        updatedGroups.push(group);
+      // Sync documentIds
+      const actualDocIds = groupDocs.map(d => d.id);
+      if (JSON.stringify(group.documentIds.sort()) !== JSON.stringify(actualDocIds.sort())) {
+        group.documentIds = actualDocIds;
+        await saveGroup(group);
       }
+      updatedGroups.push(group);
     }
 
     const ungrouped = allDocs.filter(doc => !doc.groupId);
@@ -114,6 +106,7 @@ export default function GroupList() {
     if (confirm('Delete this document permanently?')) {
       await dbDeleteDocument(docId);
       await loadGroupsAndDocuments();
+      setReloadTrigger(prev => prev + 1);
     }
   };
 
@@ -183,8 +176,9 @@ export default function GroupList() {
     await addDocumentToGroup(draggedDoc, groupId);
     setDraggedDoc(null);
 
-    // Force reload to update counts and check for empty groups
+    // Force reload to update counts and trigger document reload in groups
     await loadGroupsAndDocuments();
+    setReloadTrigger(prev => prev + 1);
   };
 
   const handleDropOnUngrouped = async () => {
@@ -194,8 +188,9 @@ export default function GroupList() {
     await removeDocumentFromGroup(draggedDoc);
     setDraggedDoc(null);
 
-    // Force reload to update counts and check for empty groups
+    // Force reload to update counts and trigger document reload in groups
     await loadGroupsAndDocuments();
+    setReloadTrigger(prev => prev + 1);
   };
 
   const toggleGroup = (groupId: string) => {
@@ -318,6 +313,7 @@ export default function GroupList() {
                   >
                     <GroupDocuments
                       groupId={group.id}
+                      reloadTrigger={reloadTrigger}
                       onDragStart={handleDragStart}
                       onDelete={handleDeleteDocument}
                       onSelect={setSelectedDocument}
@@ -383,12 +379,14 @@ export default function GroupList() {
 // Helper component to load and display documents in a group
 function GroupDocuments({
   groupId,
+  reloadTrigger,
   onDragStart,
   onDelete,
   onSelect,
   formatFileSize,
 }: {
   groupId: string;
+  reloadTrigger: number;
   onDragStart: (docId: string) => void;
   onDelete: (docId: string, e: React.MouseEvent) => void;
   onSelect: (doc: Document) => void;
@@ -398,7 +396,7 @@ function GroupDocuments({
 
   useEffect(() => {
     loadDocs();
-  }, [groupId]);
+  }, [groupId, reloadTrigger]);
 
   const loadDocs = async () => {
     const groupDocs = await getDocumentsByGroup(groupId);

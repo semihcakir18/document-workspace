@@ -12,13 +12,26 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
 }
 
-.annotation-header h3 {
-  font-size: 1.1rem;
+.annotation-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.annotation-header-title h3 {
+  font-size: 1rem;
   font-weight: 600;
+  margin: 0;
+}
+
+.header-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-secondary);
 }
 
 .annotation-count {
@@ -42,8 +55,11 @@
 }
 
 .annotation-empty .empty-icon {
-  font-size: 3rem;
+  width: 4rem;
+  height: 4rem;
+  color: var(--text-secondary);
   margin-bottom: 1rem;
+  opacity: 0.5;
 }
 
 .tag-filter {
@@ -71,10 +87,18 @@
 }
 
 .annotation-section h4 {
-  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
+}
+
+.section-icon {
+  width: 1rem;
+  height: 1rem;
 }
 
 .annotation-item {
@@ -167,14 +191,32 @@
 .delete-annotation {
   background: none;
   border: none;
-  font-size: 1rem;
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-  padding: 0.25rem;
+  opacity: 0;
+  transition: all 0.2s ease;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.delete-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--error-color);
 }
 
 .delete-annotation:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.annotation-item:hover .delete-annotation {
+  opacity: 0.6;
+}
+
+.annotation-item:hover .delete-annotation:hover {
   opacity: 1;
 }
 

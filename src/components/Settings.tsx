@@ -5,6 +5,8 @@
 
 import './Settings.css';
 import { useState, useEffect } from 'react';
+import { X, Key, FileText, Sliders, Eye, EyeOff, Trash2, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { encryptAPIKey, decryptAPIKey, validateOpenAIKey, validateAnthropicKey } from '../utils/encryption';
 import { clearOldEmbeddings, clearAllData } from '../services/db';
@@ -43,13 +45,14 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   }, [isOpen]);
 
   const loadCurrentAPIKey = async () => {
-    const stored = localStorage.getItem('encryptedAPIKey');
-    if (stored && apiProvider) {
+    const stored = localStorage.getItem('ai-doc-api-key');
+    const storedProvider = localStorage.getItem('ai-doc-api-provider') as 'openai' | 'anthropic';
+    if (stored && storedProvider) {
       try {
         const config = JSON.parse(stored);
-        const decrypted = await decryptAPIKey(config.encrypted, config.salt, config.iv);
+        const decrypted = await decryptAPIKey(config.encryptedKey, config.salt || '', config.iv);
         setApiKey(decrypted);
-        setProvider(apiProvider);
+        setProvider(storedProvider);
         setKeyStatus('valid');
       } catch (error) {
         console.error('Failed to load API key:', error);
@@ -78,7 +81,8 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
 
       // Encrypt and save
       const encrypted = await encryptAPIKey(apiKey);
-      localStorage.setItem('encryptedAPIKey', JSON.stringify(encrypted));
+      localStorage.setItem('ai-doc-api-key', JSON.stringify(encrypted));
+      localStorage.setItem('ai-doc-api-provider', provider);
       setHasAPIKey(true, provider);
       setKeyStatus('valid');
     } catch (error) {
@@ -88,7 +92,8 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   };
 
   const handleRemoveAPIKey = () => {
-    localStorage.removeItem('encryptedAPIKey');
+    localStorage.removeItem('ai-doc-api-key');
+    localStorage.removeItem('ai-doc-api-provider');
     setHasAPIKey(false);
     setApiKey('');
     setKeyStatus('idle');
@@ -134,33 +139,55 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-header">
-          <h2>⚙️ Settings</h2>
-          <button className="close-button" onClick={onClose}>✕</button>
-        </div>
+    <AnimatePresence>
+      <div className="settings-overlay" onClick={onClose}>
+        <motion.div
+          className="settings-panel"
+          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="settings-header">
+            <h2>Settings</h2>
+            <button className="close-button" onClick={onClose}>
+              <X className="icon" />
+            </button>
+          </div>
 
-        <div className="settings-tabs">
-          <button
-            className={`settings-tab ${activeTab === 'api' ? 'active' : ''}`}
-            onClick={() => setActiveTab('api')}
-          >
-            🔑 API Keys
-          </button>
-          <button
-            className={`settings-tab ${activeTab === 'chunking' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chunking')}
-          >
-            📄 Chunking
-          </button>
-          <button
-            className={`settings-tab ${activeTab === 'advanced' ? 'active' : ''}`}
-            onClick={() => setActiveTab('advanced')}
-          >
-            🔧 Advanced
-          </button>
-        </div>
+          <div className="settings-tabs">
+            <button
+              className={`settings-tab ${activeTab === 'api' ? 'active' : ''}`}
+              onClick={() => setActiveTab('api')}
+            >
+              <Key className="tab-icon" />
+              <span>API Keys</span>
+              {activeTab === 'api' && (
+                <motion.div layoutId="activeSettingsTab" className="tab-indicator" />
+              )}
+            </button>
+            <button
+              className={`settings-tab ${activeTab === 'chunking' ? 'active' : ''}`}
+              onClick={() => setActiveTab('chunking')}
+            >
+              <FileText className="tab-icon" />
+              <span>Chunking</span>
+              {activeTab === 'chunking' && (
+                <motion.div layoutId="activeSettingsTab" className="tab-indicator" />
+              )}
+            </button>
+            <button
+              className={`settings-tab ${activeTab === 'advanced' ? 'active' : ''}`}
+              onClick={() => setActiveTab('advanced')}
+            >
+              <Sliders className="tab-icon" />
+              <span>Advanced</span>
+              {activeTab === 'advanced' && (
+                <motion.div layoutId="activeSettingsTab" className="tab-indicator" />
+              )}
+            </button>
+          </div>
 
         <div className="settings-content">
           {activeTab === 'api' && (
@@ -194,7 +221,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                     className="toggle-visibility"
                     onClick={() => setShowKey(!showKey)}
                   >
-                    {showKey ? '🙈' : '👁️'}
+                    {showKey ? <EyeOff className="icon" /> : <Eye className="icon" />}
                   </button>
                 </div>
                 {keyStatus === 'checking' && <p className="status-message">Validating...</p>}
@@ -341,21 +368,24 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                 </button>
               </div>
 
-              <hr />
-
-              <div className="form-group">
-                <label className="danger-label">Danger Zone</label>
-                <button onClick={handleClearAllData} className="danger">
-                  🗑️ Clear All Data
-                </button>
-                <p className="help-text">
-                  Permanently delete all documents, messages, and cached embeddings. This cannot be undone.
+              <div className="danger-zone">
+                <div className="danger-zone-header">
+                  <AlertTriangle className="danger-zone-icon" />
+                  <h4>Danger Zone</h4>
+                </div>
+                <p className="danger-zone-description">
+                  Permanently delete all documents, messages, and cached embeddings. This action cannot be undone.
                 </p>
+                <button onClick={handleClearAllData} className="danger-button">
+                  <Trash2 className="button-icon" />
+                  Clear All Data
+                </button>
               </div>
             </div>
           )}
         </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }

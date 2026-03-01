@@ -5,6 +5,7 @@
 
 import './Annotations.css';
 import { useState, useEffect } from 'react';
+import { StickyNote, Highlighter, FileText, Trash2, Tag } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { getAnnotationsByDocument, deleteAnnotation } from '../services/db';
 import type { Annotation } from '../types/index';
@@ -61,7 +62,7 @@ export default function AnnotationPanel() {
     return (
       <div className="annotation-panel">
         <div className="annotation-empty">
-          <span className="empty-icon">📝</span>
+          <StickyNote className="empty-icon" />
           <p>Select a document to view annotations</p>
         </div>
       </div>
@@ -71,7 +72,10 @@ export default function AnnotationPanel() {
   return (
     <div className="annotation-panel">
       <div className="annotation-header">
-        <h3>📝 Annotations</h3>
+        <div className="annotation-header-title">
+          <StickyNote className="header-icon" />
+          <h3>Annotations</h3>
+        </div>
         <span className="annotation-count">{filteredAnnotations.length}</span>
       </div>
 
@@ -102,7 +106,10 @@ export default function AnnotationPanel() {
             {/* Highlights section */}
             {highlightAnnotations.length > 0 && (
               <div className="annotation-section">
-                <h4>🖍️ Highlights ({highlightAnnotations.length})</h4>
+                <h4>
+                  <Highlighter className="section-icon" />
+                  Highlights ({highlightAnnotations.length})
+                </h4>
                 {highlightAnnotations.map(annotation => (
                   <div
                     key={annotation.id}
@@ -137,7 +144,7 @@ export default function AnnotationPanel() {
                           handleDelete(annotation.id);
                         }}
                       >
-                        🗑️
+                        <Trash2 className="delete-icon" />
                       </button>
                     </div>
                   </div>
@@ -148,7 +155,10 @@ export default function AnnotationPanel() {
             {/* Notes section */}
             {noteAnnotations.length > 0 && (
               <div className="annotation-section">
-                <h4>📌 Notes ({noteAnnotations.length})</h4>
+                <h4>
+                  <FileText className="section-icon" />
+                  Notes ({noteAnnotations.length})
+                </h4>
                 {noteAnnotations.map(annotation => (
                   <div
                     key={annotation.id}
@@ -183,7 +193,7 @@ export default function AnnotationPanel() {
                           handleDelete(annotation.id);
                         }}
                       >
-                        🗑️
+                        <Trash2 className="delete-icon" />
                       </button>
                     </div>
                   </div>

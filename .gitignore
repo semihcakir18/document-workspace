@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 .claude
 Project_Plan.md
+design_example/

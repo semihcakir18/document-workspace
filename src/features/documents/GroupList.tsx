@@ -4,6 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
+import { Upload, Plus, ChevronRight, ChevronDown, Trash2, FileText, FolderOpen, GripVertical, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store/useStore';
 import {
   getAllGroups,
@@ -231,7 +233,17 @@ export default function GroupList() {
             disabled={uploading}
             style={{ display: 'none' }}
           />
-          <span>{uploading ? '⏳ Uploading...' : '+ Upload PDF'}</span>
+          {uploading ? (
+            <>
+              <Loader2 className="icon spin" />
+              <span>Uploading...</span>
+            </>
+          ) : (
+            <>
+              <Upload className="icon" />
+              <span>Upload PDF</span>
+            </>
+          )}
         </label>
       </div>
 
@@ -252,7 +264,8 @@ export default function GroupList() {
           </div>
         ) : (
           <button className="create-group-button" onClick={() => setShowNewGroup(true)}>
-            + Create Group
+            <Plus className="icon" />
+            <span>New Group</span>
           </button>
         )}
 
@@ -276,29 +289,43 @@ export default function GroupList() {
                     toggleGroup(group.id);
                   }}
                 >
-                  {isExpanded ? '▼' : '▶'}
+                  {isExpanded ? (
+                    <ChevronDown className="icon" />
+                  ) : (
+                    <ChevronRight className="icon" />
+                  )}
                 </button>
                 <div className="group-color" style={{ background: group.color }} />
                 <span className="group-name">{group.name}</span>
-                <span className="group-count">({group.documentIds.length})</span>
+                <span className="group-count">{group.documentIds.length}</span>
                 <button
                   className="delete-button"
                   onClick={(e) => handleDeleteGroup(group.id, e)}
                   title="Delete group"
                 >
-                  🗑️
+                  <Trash2 className="icon" />
                 </button>
               </div>
 
-              {isExpanded && (
-                <GroupDocuments
-                  groupId={group.id}
-                  onDragStart={handleDragStart}
-                  onDelete={handleDeleteDocument}
-                  onSelect={setSelectedDocument}
-                  formatFileSize={formatFileSize}
-                />
-              )}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <GroupDocuments
+                      groupId={group.id}
+                      onDragStart={handleDragStart}
+                      onDelete={handleDeleteDocument}
+                      onSelect={setSelectedDocument}
+                      formatFileSize={formatFileSize}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}
@@ -311,18 +338,24 @@ export default function GroupList() {
             onDrop={handleDropOnUngrouped}
           >
             <div className="ungrouped-header">
-              <span>📂 Ungrouped ({ungroupedDocs.length})</span>
+              <FolderOpen className="icon" />
+              <span>Ungrouped</span>
+              <span className="ungrouped-count">{ungroupedDocs.length}</span>
             </div>
             <div className="document-items">
-              {ungroupedDocs.map(doc => (
-                <div
+              {ungroupedDocs.map((doc, index) => (
+                <motion.div
                   key={doc.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
                   className="document-item"
                   draggable
                   onDragStart={() => handleDragStart(doc.id)}
                   onClick={() => setSelectedDocument(doc)}
                 >
-                  <div className="document-icon">📄</div>
+                  <GripVertical className="drag-icon" />
+                  <FileText className="document-icon" />
                   <div className="document-info">
                     <div className="document-name">{doc.name}</div>
                     <div className="document-meta">
@@ -335,9 +368,9 @@ export default function GroupList() {
                     onClick={(e) => handleDeleteDocument(doc.id, e)}
                     title="Delete document"
                   >
-                    🗑️
+                    <Trash2 className="icon" />
                   </button>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -382,15 +415,19 @@ function GroupDocuments({
 
   return (
     <div className="group-documents">
-      {docs.map(doc => (
-        <div
+      {docs.map((doc, index) => (
+        <motion.div
           key={doc.id}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.2, delay: index * 0.05 }}
           className="document-item"
           draggable
           onDragStart={() => onDragStart(doc.id)}
           onClick={() => onSelect(doc)}
         >
-          <div className="document-icon">📄</div>
+          <GripVertical className="drag-icon" />
+          <FileText className="document-icon" />
           <div className="document-info">
             <div className="document-name">{doc.name}</div>
             <div className="document-meta">
@@ -403,9 +440,9 @@ function GroupDocuments({
             onClick={(e) => onDelete(doc.id, e)}
             title="Delete document"
           >
-            🗑️
+            <Trash2 className="icon" />
           </button>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

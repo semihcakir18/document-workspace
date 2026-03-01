@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { FileText, PanelLeftClose, PanelLeftOpen, MessageSquare, Settings as SettingsIcon, FolderOpen, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import GroupList from '../features/documents/GroupList';
 import DocumentViewer from '../features/documents/DocumentViewer';
@@ -23,38 +24,47 @@ export default function Layout() {
       {error && (
         <div className="error-notification">
           <span>{error}</span>
-          <button onClick={() => setError(null)}>✕</button>
+          <button onClick={() => setError(null)}>
+            <X className="icon" />
+          </button>
         </div>
       )}
 
       {/* Header */}
       <header className="header">
         <div className="header-content">
-          <h1 className="logo">
-            <span className="logo-icon">📄</span>
-            AI Document Workspace
-          </h1>
+          <div className="logo">
+            {/* <FileText className="logo-icon" /> */}
+            <h1>Document Workspace</h1>
+          </div>
           <div className="header-actions">
             <button
               className="icon-button"
               onClick={useStore.getState().toggleDocumentList}
               title="Toggle document list"
+              aria-label="Toggle document list"
             >
-              📁
+              {showDocumentList ? (
+                <PanelLeftClose className="icon" />
+              ) : (
+                <PanelLeftOpen className="icon" />
+              )}
             </button>
             <button
               className="icon-button"
               onClick={useStore.getState().toggleChat}
               title="Toggle chat panel"
+              aria-label="Toggle chat panel"
             >
-              💬
+              <MessageSquare className="icon" />
             </button>
             <button
               className="icon-button"
               onClick={() => setShowSettings(true)}
               title="Settings"
+              aria-label="Settings"
             >
-              ⚙️
+              <SettingsIcon className="icon" />
             </button>
           </div>
         </div>
@@ -76,7 +86,7 @@ export default function Layout() {
           ) : (
             <div className="empty-state">
               <div className="empty-state-content">
-                <span className="empty-state-icon">📂</span>
+                <FolderOpen className="empty-state-icon" />
                 <h2>No Document Selected</h2>
                 <p>Upload a PDF document to get started</p>
               </div>

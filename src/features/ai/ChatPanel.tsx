@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { MessageSquare, Key, Loader2, CheckCircle, User, Bot, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore } from '../../store/useStore';
@@ -184,7 +185,7 @@ export default function ChatPanel() {
     return (
       <div className="chat-panel">
         <div className="chat-empty">
-          <span className="chat-empty-icon">💬</span>
+          <MessageSquare className="chat-empty-icon" />
           <p>Select a group to start chatting</p>
           <p className="text-muted">AI will search within the selected group</p>
         </div>
@@ -196,7 +197,7 @@ export default function ChatPanel() {
     return (
       <div className="chat-panel">
         <div className="chat-empty">
-          <span className="chat-empty-icon">🔑</span>
+          <Key className="chat-empty-icon" />
           <p>API key required</p>
           <p className="text-muted">Add your OpenAI API key in settings</p>
         </div>
@@ -207,9 +208,22 @@ export default function ChatPanel() {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <h3>💬 {selectedGroup.name}</h3>
-        <span className="chat-status">
-          {isStreaming ? '⏳ Thinking...' : '✓ Ready'}
+        <div className="chat-header-title">
+          <MessageSquare className="header-icon" />
+          <h3>{selectedGroup.name}</h3>
+        </div>
+        <span className={`chat-status ${isStreaming ? 'streaming' : ''}`}>
+          {isStreaming ? (
+            <>
+              <Loader2 className="status-icon spin" />
+              <span>Thinking...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="status-icon" />
+              <span>Ready</span>
+            </>
+          )}
         </span>
       </div>
 
@@ -224,26 +238,32 @@ export default function ChatPanel() {
             const chunks = messageChunks.get(msg.id) || [];
             return (
               <div key={msg.id} className={`message message-${msg.role}`}>
-                <div className="message-header">
-                  <span className="message-role">
-                    {msg.role === 'user' ? '👤' : '🤖'}
-                  </span>
-                  <span className="message-time">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <div className="message-content">
-                  {msg.role === 'assistant' ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.content}
-                    </ReactMarkdown>
+                <div className="message-avatar">
+                  {msg.role === 'user' ? (
+                    <User className="avatar-icon" />
                   ) : (
-                    msg.content
+                    <Bot className="avatar-icon" />
                   )}
                 </div>
-                {msg.role === 'assistant' && chunks.length > 0 && (
-                  <Citations chunks={chunks} />
-                )}
+                <div className="message-body">
+                  <div className="message-header">
+                    <span className="message-time">
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="message-content">
+                    {msg.role === 'assistant' ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                  {msg.role === 'assistant' && chunks.length > 0 && (
+                    <Citations chunks={chunks} />
+                  )}
+                </div>
               </div>
             );
           })
@@ -261,7 +281,11 @@ export default function ChatPanel() {
           disabled={isStreaming}
         />
         <button type="submit" className="send-button" disabled={!input.trim() || isStreaming}>
-          {isStreaming ? '⏳' : '➤'}
+          {isStreaming ? (
+            <Loader2 className="send-icon spin" />
+          ) : (
+            <Send className="send-icon" />
+          )}
         </button>
       </form>
     </div>

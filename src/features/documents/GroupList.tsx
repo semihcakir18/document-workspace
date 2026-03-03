@@ -17,6 +17,7 @@ import {
   addDocumentToGroup,
   removeDocumentFromGroup,
   getDocumentsByGroup,
+  getDocument,
   deleteDocument as dbDeleteDocument
 } from '../../services/db';
 import { parsePDF } from '../../services/pdfParser';
@@ -348,7 +349,13 @@ export default function GroupList() {
                   className="document-item"
                   draggable
                   onDragStart={() => handleDragStart(doc.id)}
-                  onClick={() => setSelectedDocument(doc)}
+                  onClick={async () => {
+                    // Fetch fresh from DB to ensure we have fileData
+                    const fullDoc = await getDocument(doc.id);
+                    if (fullDoc) {
+                      setSelectedDocument(fullDoc);
+                    }
+                  }}
                 >
                   <GripVertical className="drag-icon" />
                   <FileText className="document-icon" />
@@ -422,7 +429,13 @@ function GroupDocuments({
           className="document-item"
           draggable
           onDragStart={() => onDragStart(doc.id)}
-          onClick={() => onSelect(doc)}
+          onClick={async () => {
+            // Fetch fresh from DB to ensure we have fileData
+            const fullDoc = await getDocument(doc.id);
+            if (fullDoc) {
+              onSelect(fullDoc);
+            }
+          }}
         >
           <GripVertical className="drag-icon" />
           <FileText className="document-icon" />

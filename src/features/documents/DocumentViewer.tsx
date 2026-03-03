@@ -4,9 +4,12 @@
  */
 
 import { useState, useEffect } from 'react';
+import { FileText, Eye } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useStore } from '../../store/useStore';
 import { getChunksByDocument, getAnnotationsByDocument } from '../../services/db';
 import AnnotationCreator from '../../components/AnnotationCreator';
+import PDFPreview from '../../components/PDFPreview';
 import './DocumentViewer.css';
 import type { DocumentChunk, Annotation } from '../../types/index';
 
@@ -16,11 +19,40 @@ export default function DocumentViewer() {
   const [loading, setLoading] = useState(true);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [showAnnotationCreator, setShowAnnotationCreator] = useState(false);
+  const [activeView, setActiveView] = useState<'plain' | 'pdf'>('plain');
   const [selectionData, setSelectionData] = useState<{
     text: string;
     chunkId: string;
     position: { x: number; y: number };
   } | null>(null);
+
+  // Create and manage blob URL for PDF preview
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Create new blob URL when document changes
+    if (selectedDocument?.fileData) {
+      console.log('Creating blob URL...');
+      console.log('fileData type:', selectedDocument.fileData.constructor.name);
+      console.log('fileData byteLength:', selectedDocument.fileData.byteLength);
+
+      const blob = new Blob([selectedDocument.fileData], { type: 'application/pdf' });
+      console.log('Blob size:', blob.size);
+      console.log('Blob type:', blob.type);
+
+      const url = URL.createObjectURL(blob);
+      console.log('Created blob URL:', url);
+      setPdfUrl(url);
+
+      // Cleanup: revoke URL when component unmounts or document changes
+      return () => {
+        console.log('Revoking blob URL:', url);
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setPdfUrl(null);
+    }
+  }, [selectedDocument?.id]); // Only recreate when document ID changes
 
   useEffect(() => {
     if (selectedDocument) {
@@ -186,22 +218,53 @@ export default function DocumentViewer() {
   return (
     <div className="document-viewer">
       <div className="document-header">
-        <h2>{selectedDocument.name}</h2>
-        <div className="document-meta">
-          {selectedDocument.pageCount && (
-            <span>{selectedDocument.pageCount} pages</span>
-          )}
+        <div className="document-title">
+          <h2>{selectedDocument.name}</h2>
+          <div className="document-meta">
+            {selectedDocument.pageCount && (
+              <span>{selectedDocument.pageCount} pages</span>
+            )}
+          </div>
+        </div>
+
+        {/* View tabs */}
+        <div className="view-tabs">
+          <button
+            className={`view-tab ${activeView === 'plain' ? 'active' : ''}`}
+            onClick={() => setActiveView('plain')}
+          >
+            <FileText className="tab-icon" />
+            <span>Plain View</span>
+            {activeView === 'plain' && (
+              <motion.div layoutId="activeViewTab" className="tab-indicator" />
+            )}
+          </button>
+          <button
+            className={`view-tab ${activeView === 'pdf' ? 'active' : ''}`}
+            onClick={() => setActiveView('pdf')}
+            disabled={!pdfUrl}
+            title={!pdfUrl ? 'PDF preview not available' : 'View original PDF'}
+          >
+            <Eye className="tab-icon" />
+            <span>PDF Preview</span>
+            {activeView === 'pdf' && (
+              <motion.div layoutId="activeViewTab" className="tab-indicator" />
+            )}
+          </button>
         </div>
       </div>
 
       <div className="document-content">
-        {chunks.length === 0 ? (
-          <div className="empty-message">
-            <p>No content available</p>
-            <p className="text-muted">The document may still be processing</p>
-          </div>
-        ) : (
-          <div className="text-content">
+        {/* Plain text view */}
+        {activeView === 'plain' && (
+          <>
+            {chunks.length === 0 ? (
+              <div className="empty-message">
+                <p>No content available</p>
+                <p className="text-muted">The document may still be processing</p>
+              </div>
+            ) : (
+              <div className="text-content">
             {chunks.map((chunk, index) => {
               const displayText = getDisplayText(chunk, index);
               // Only show chunk if it has non-overlapping content
@@ -230,12 +293,19 @@ export default function DocumentViewer() {
                 </div>
               );
             })}
-          </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* PDF Preview */}
+        {activeView === 'pdf' && pdfUrl && (
+          <PDFPreview fileUrl={pdfUrl} chunks={chunks} />
         )}
       </div>
 
-      {/* Annotation creator */}
-      {showAnnotationCreator && selectionData && (
+      {/* Annotation creator - only show in plain view */}
+      {activeView === 'plain' && showAnnotationCreator && selectionData && (
         <AnnotationCreator
           documentId={selectedDocument.id}
           chunkId={selectionData.chunkId}

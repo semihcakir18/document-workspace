@@ -17,6 +17,7 @@ export interface Document {
   lastModified: Date;
   pageCount?: number;
   groupId?: string | null;
+  fileData?: ArrayBuffer; // Original PDF file data for preview
 }
 
 export interface DocumentChunk {

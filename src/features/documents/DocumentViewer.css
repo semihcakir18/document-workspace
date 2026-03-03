@@ -11,9 +11,12 @@
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.document-header h2 {
+.document-title h2 {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -23,6 +26,58 @@
 .document-meta {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+/* View tabs */
+.view-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.view-tab .tab-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.view-tab:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.view-tab.active {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: var(--bg-secondary);
+}
+
+.view-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary-color);
 }
 
 .document-content {

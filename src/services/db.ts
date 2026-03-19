@@ -118,13 +118,7 @@ export async function saveDocument(document: Document): Promise<void> {
 
 export async function getDocument(id: string): Promise<Document | undefined> {
   const db = await getDB();
-  const doc = await db.get('documents', id);
-  if (doc) {
-    console.log('Retrieved document from DB:', doc.name);
-    console.log('  fileData type:', doc.fileData?.constructor.name);
-    console.log('  fileData byteLength:', doc.fileData?.byteLength);
-  }
-  return doc;
+  return db.get('documents', id);
 }
 
 export async function getAllDocuments(): Promise<Document[]> {

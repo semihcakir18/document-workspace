@@ -3,15 +3,18 @@
  * Displays the selected PDF document with text highlighting support
  */
 
-import { useState, useEffect } from 'react';
-import { FileText, Eye } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useStore } from '../../store/useStore';
-import { getChunksByDocument, getAnnotationsByDocument } from '../../services/db';
-import AnnotationCreator from '../../components/AnnotationCreator';
-import PDFPreview from '../../components/PDFPreview';
-import './DocumentViewer.css';
-import type { DocumentChunk, Annotation } from '../../types/index';
+import React, { useState, useEffect, useRef } from "react";
+import { FileText, Eye } from "lucide-react";
+import { motion } from "framer-motion";
+import { useStore } from "../../store/useStore";
+import {
+  getChunksByDocument,
+  getAnnotationsByDocument,
+} from "../../services/db";
+import AnnotationCreator from "../../components/AnnotationCreator";
+import PDFPreview from "../../components/PDFPreview";
+import "./DocumentViewer.css";
+import type { DocumentChunk, Annotation } from "../../types/index";
 
 export default function DocumentViewer() {
   const { selectedDocument, highlightedChunkIds } = useStore();
@@ -19,7 +22,8 @@ export default function DocumentViewer() {
   const [loading, setLoading] = useState(true);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [showAnnotationCreator, setShowAnnotationCreator] = useState(false);
-  const [activeView, setActiveView] = useState<'plain' | 'pdf'>('plain');
+  const [activeView, setActiveView] = useState<"plain" | "pdf">("plain");
+  const plainViewScrollRef = useRef<number>(0);
   const [selectionData, setSelectionData] = useState<{
     text: string;
     chunkId: string;
@@ -32,21 +36,13 @@ export default function DocumentViewer() {
   useEffect(() => {
     // Create new blob URL when document changes
     if (selectedDocument?.fileData) {
-      console.log('Creating blob URL...');
-      console.log('fileData type:', selectedDocument.fileData.constructor.name);
-      console.log('fileData byteLength:', selectedDocument.fileData.byteLength);
-
-      const blob = new Blob([selectedDocument.fileData], { type: 'application/pdf' });
-      console.log('Blob size:', blob.size);
-      console.log('Blob type:', blob.type);
-
+      const blob = new Blob([selectedDocument.fileData], {
+        type: "application/pdf",
+      });
       const url = URL.createObjectURL(blob);
-      console.log('Created blob URL:', url);
       setPdfUrl(url);
 
-      // Cleanup: revoke URL when component unmounts or document changes
       return () => {
-        console.log('Revoking blob URL:', url);
         URL.revokeObjectURL(url);
       };
     } else {
@@ -78,7 +74,7 @@ export default function DocumentViewer() {
 
       setChunks(sortedChunks);
     } catch (error) {
-      console.error('Failed to load document chunks:', error);
+      console.error("Failed to load document chunks:", error);
     } finally {
       setLoading(false);
     }
@@ -90,7 +86,7 @@ export default function DocumentViewer() {
       const annots = await getAnnotationsByDocument(selectedDocument.id);
       setAnnotations(annots);
     } catch (error) {
-      console.error('Failed to load annotations:', error);
+      console.error("Failed to load annotations:", error);
     }
   };
 
@@ -122,14 +118,17 @@ export default function DocumentViewer() {
   };
 
   // Render text with annotation highlights
-  const renderTextWithAnnotations = (text: string, chunkAnnotations: Annotation[]) => {
+  const renderTextWithAnnotations = (
+    text: string,
+    chunkAnnotations: Annotation[],
+  ) => {
     if (chunkAnnotations.length === 0) {
       return text;
     }
 
     // For simplicity, just wrap the entire selected text in a highlight
     // In a production app, you'd want more sophisticated text matching
-    const segments: JSX.Element[] = [];
+    const segments: React.JSX.Element[] = [];
     let lastIndex = 0;
 
     chunkAnnotations.forEach((annotation, idx) => {
@@ -140,7 +139,9 @@ export default function DocumentViewer() {
         // Add text before the match
         if (matchIndex > lastIndex) {
           segments.push(
-            <span key={`text-${idx}`}>{text.slice(lastIndex, matchIndex)}</span>
+            <span key={`text-${idx}`}>
+              {text.slice(lastIndex, matchIndex)}
+            </span>,
           );
         }
 
@@ -150,10 +151,10 @@ export default function DocumentViewer() {
             key={`mark-${idx}`}
             className="annotation-highlight"
             style={{ background: annotation.color }}
-            title={annotation.note || 'Highlight'}
+            title={annotation.note || "Highlight"}
           >
             {annotation.selectedText}
-          </mark>
+          </mark>,
         );
 
         lastIndex = matchIndex + annotation.selectedText.length;
@@ -230,24 +231,36 @@ export default function DocumentViewer() {
         {/* View tabs */}
         <div className="view-tabs">
           <button
-            className={`view-tab ${activeView === 'plain' ? 'active' : ''}`}
-            onClick={() => setActiveView('plain')}
+            className={`view-tab ${activeView === "plain" ? "active" : ""}`}
+            onClick={() => {
+              setActiveView("plain");
+              // Restore scroll position after render
+              setTimeout(() => {
+                const content = document.querySelector(".document-content");
+                if (content) content.scrollTop = plainViewScrollRef.current;
+              }, 0);
+            }}
           >
             <FileText className="tab-icon" />
             <span>Plain View</span>
-            {activeView === 'plain' && (
+            {activeView === "plain" && (
               <motion.div layoutId="activeViewTab" className="tab-indicator" />
             )}
           </button>
           <button
-            className={`view-tab ${activeView === 'pdf' ? 'active' : ''}`}
-            onClick={() => setActiveView('pdf')}
+            className={`view-tab ${activeView === "pdf" ? "active" : ""}`}
+            onClick={() => {
+              // Save plain view scroll position before switching
+              const content = document.querySelector(".document-content");
+              if (content) plainViewScrollRef.current = content.scrollTop;
+              setActiveView("pdf");
+            }}
             disabled={!pdfUrl}
-            title={!pdfUrl ? 'PDF preview not available' : 'View original PDF'}
+            title={!pdfUrl ? "PDF preview not available" : "View original PDF"}
           >
             <Eye className="tab-icon" />
             <span>PDF Preview</span>
-            {activeView === 'pdf' && (
+            {activeView === "pdf" && (
               <motion.div layoutId="activeViewTab" className="tab-indicator" />
             )}
           </button>
@@ -256,56 +269,70 @@ export default function DocumentViewer() {
 
       <div className="document-content">
         {/* Plain text view */}
-        {activeView === 'plain' && (
+        {activeView === "plain" && (
           <>
             {chunks.length === 0 ? (
               <div className="empty-message">
                 <p>No content available</p>
-                <p className="text-muted">The document may still be processing</p>
+                <p className="text-muted">
+                  The document may still be processing
+                </p>
               </div>
             ) : (
               <div className="text-content">
-            {chunks.map((chunk, index) => {
-              const displayText = getDisplayText(chunk, index);
-              // Only show chunk if it has non-overlapping content
-              if (!displayText) return null;
+                {chunks.map((chunk, index) => {
+                  const displayText = getDisplayText(chunk, index);
+                  // Only show chunk if it has non-overlapping content
+                  if (!displayText) return null;
 
-              const isHighlighted = highlightedChunkIds.includes(chunk.id);
-              const chunkAnnotations = annotations.filter(a => a.chunkId === chunk.id && a.type === 'highlight');
+                  const isHighlighted = highlightedChunkIds.includes(chunk.id);
+                  const chunkAnnotations = annotations.filter(
+                    (a) => a.chunkId === chunk.id && a.type === "highlight",
+                  );
 
-              return (
-                <div
-                  key={chunk.id}
-                  className={`text-chunk ${isHighlighted ? 'highlighted' : ''}`}
-                  data-chunk-id={chunk.id}
-                  onMouseUp={() => handleTextSelection(chunk.id)}
-                >
-                  <span className="page-number">Page {chunk.pageNumber}</span>
-                  <p style={{ whiteSpace: 'pre-wrap', position: 'relative' }}>
-                    {renderTextWithAnnotations(displayText, chunkAnnotations)}
-                  </p>
-                  {isHighlighted && <div className="highlight-badge">Referenced</div>}
-                  {chunkAnnotations.length > 0 && (
-                    <div className="chunk-annotations">
-                      {chunkAnnotations.length} annotation{chunkAnnotations.length !== 1 ? 's' : ''}
+                  return (
+                    <div
+                      key={chunk.id}
+                      className={`text-chunk ${isHighlighted ? "highlighted" : ""}`}
+                      data-chunk-id={chunk.id}
+                      onMouseUp={() => handleTextSelection(chunk.id)}
+                    >
+                      <span className="page-number">
+                        Page {chunk.pageNumber}
+                      </span>
+                      <p
+                        style={{ whiteSpace: "pre-wrap", position: "relative" }}
+                      >
+                        {renderTextWithAnnotations(
+                          displayText,
+                          chunkAnnotations,
+                        )}
+                      </p>
+                      {isHighlighted && (
+                        <div className="highlight-badge">Referenced</div>
+                      )}
+                      {chunkAnnotations.length > 0 && (
+                        <div className="chunk-annotations">
+                          {chunkAnnotations.length} annotation
+                          {chunkAnnotations.length !== 1 ? "s" : ""}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
               </div>
             )}
           </>
         )}
 
         {/* PDF Preview */}
-        {activeView === 'pdf' && pdfUrl && (
+        {activeView === "pdf" && pdfUrl && (
           <PDFPreview fileUrl={pdfUrl} chunks={chunks} />
         )}
       </div>
 
       {/* Annotation creator - only show in plain view */}
-      {activeView === 'plain' && showAnnotationCreator && selectionData && (
+      {activeView === "plain" && showAnnotationCreator && selectionData && (
         <AnnotationCreator
           documentId={selectedDocument.id}
           chunkId={selectionData.chunkId}

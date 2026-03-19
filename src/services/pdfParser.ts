@@ -16,11 +16,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
  */
 export async function parsePDF(file: File): Promise<{ document: Document; chunks: DocumentChunk[] }> {
   const arrayBuffer = await file.arrayBuffer();
-  console.log('Original arrayBuffer byteLength:', arrayBuffer.byteLength);
 
   // Create a copy of the ArrayBuffer for storage (PDF.js will detach the original)
   const storedBuffer = arrayBuffer.slice(0);
-  console.log('Stored buffer byteLength:', storedBuffer.byteLength);
 
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -117,8 +115,6 @@ export async function parsePDF(file: File): Promise<{ document: Document; chunks
     pageCount: pdf.numPages,
     fileData: storedBuffer, // Store original PDF for preview (using the cloned buffer)
   };
-
-  console.log('Document object fileData byteLength:', document.fileData?.byteLength);
 
   // Create chunks from the text
   const chunks = createChunks(documentId, pageTexts);

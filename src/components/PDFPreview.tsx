@@ -25,6 +25,7 @@ export default function PDFPreview({ fileUrl, chunks }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pageWidth, setPageWidth] = useState<number>(0);
+  const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
 
   // Get chunks for current page (define early so useEffect can use it)
   const pageChunks = chunks.filter(chunk => chunk.pageNumber === pageNumber);
@@ -60,8 +61,10 @@ export default function PDFPreview({ fileUrl, chunks }: PDFPreviewProps) {
 
     console.log('Text layer found:', textLayer);
 
-    // Remove existing highlights
-    textLayer.querySelectorAll('.pdf-text-highlight').forEach(el => el.remove());
+    // Reset existing highlights
+    textLayer.querySelectorAll('span').forEach(el => {
+      (el as HTMLElement).style.backgroundColor = '';
+    });
 
     // Get all text spans in the text layer
     const textSpans = Array.from(textLayer.querySelectorAll('span')) as HTMLElement[];
@@ -73,70 +76,89 @@ export default function PDFPreview({ fileUrl, chunks }: PDFPreviewProps) {
       return;
     }
 
-    // Build a character-to-span mapping
-    const spanRanges: Array<{ start: number; end: number }> = [];
-    let totalChars = 0;
-    textSpans.forEach(span => {
-      const len = (span.textContent || '').length;
-      spanRanges.push({ start: totalChars, end: totalChars + len });
-      totalChars += len;
+    // Strip ALL whitespace for matching (eliminates all spacing differences)
+    const stripWs = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+
+    // Build a stripped version of the text layer text
+    // For each char in the stripped version, track which span it belongs to
+    const strippedChars: Array<{ spanIdx: number }> = [];
+    let strippedCombined = '';
+    textSpans.forEach((span, spanIdx) => {
+      const text = span.textContent || '';
+      for (let c = 0; c < text.length; c++) {
+        const ch = text[c];
+        if (!/\s/.test(ch)) {
+          strippedChars.push({ spanIdx });
+          strippedCombined += ch.toLowerCase();
+        }
+      }
     });
 
-    // Find the max endIndex to know the total page text length
-    const maxEndIndex = Math.max(...pageChunks.map(c => c.endIndex), 1);
+    // Compute de-overlapped display text for each chunk (same as sidebar/Plain View)
+    const displayTexts = pageChunks.map((chunk, index) => {
+      let displayText = chunk.text;
+      if (index > 0) {
+        const prevChunk = pageChunks[index - 1];
+        const prevText = prevChunk.text;
+        const maxOverlap = Math.min(300, prevText.length, displayText.length);
+        for (let overlapLen = maxOverlap; overlapLen > 20; overlapLen--) {
+          if (prevText.slice(-overlapLen) === displayText.slice(0, overlapLen)) {
+            displayText = displayText.slice(overlapLen).trim();
+            break;
+          }
+        }
+      }
+      return displayText;
+    });
 
-    // First pass: determine what each span should look like
-    // Each span gets exactly ONE highlight - yellow takes priority over grey
+    // Determine highlight for each span: yellow > grey > none
     const spanHighlights: Array<{ type: 'none' | 'grey' | 'yellow'; opacity: number }> =
       textSpans.map(() => ({ type: 'none' as const, opacity: 0 }));
 
     pageChunks.forEach((chunk, chunkIndex) => {
       const isReferenced = highlightedChunkIds.includes(chunk.id);
       const opacity = 0.15 + (chunkIndex * 0.05);
+      const displayText = displayTexts[chunkIndex];
+      if (!displayText) return;
 
-      // Map chunk range to span character range
-      const chunkStartRatio = chunk.startIndex / maxEndIndex;
-      const chunkEndRatio = chunk.endIndex / maxEndIndex;
-      const mappedStart = Math.floor(chunkStartRatio * totalChars);
-      const mappedEnd = Math.ceil(chunkEndRatio * totalChars);
+      const chunkStripped = stripWs(displayText);
 
-      // Mark spans that fall within this chunk's range
-      for (let i = 0; i < textSpans.length; i++) {
-        const range = spanRanges[i];
-        if (range.end > mappedStart && range.start < mappedEnd) {
-          if (isReferenced) {
-            // Yellow always wins
-            spanHighlights[i] = { type: 'yellow', opacity: 0.4 };
-          } else if (spanHighlights[i].type !== 'yellow') {
-            // Only set grey if not already yellow, and don't stack opacity
-            spanHighlights[i] = { type: 'grey', opacity };
-          }
+      // Find the start of this chunk in the stripped combined text
+      const idx = strippedCombined.indexOf(chunkStripped.substring(0, Math.min(80, chunkStripped.length)));
+      if (idx === -1) {
+        console.log(`Chunk ${chunkIndex + 1}: not found`);
+        return;
+      }
+
+      // Find the end
+      const endSearch = chunkStripped.substring(Math.max(0, chunkStripped.length - 80));
+      const endIdx = strippedCombined.indexOf(endSearch, idx);
+      const end = endIdx !== -1 ? endIdx + endSearch.length : idx + chunkStripped.length;
+
+      console.log(`Chunk ${chunkIndex + 1}: stripped ${idx}-${end} (of ${strippedCombined.length})`);
+
+      // Mark the spans
+      for (let c = idx; c < Math.min(end, strippedChars.length); c++) {
+        const { spanIdx } = strippedChars[c];
+        if (isReferenced) {
+          spanHighlights[spanIdx] = { type: 'yellow', opacity: 0.4 };
+        } else if (spanHighlights[spanIdx].type !== 'yellow') {
+          spanHighlights[spanIdx] = { type: 'grey', opacity };
         }
       }
     });
 
-    // Second pass: create exactly one highlight div per span that needs it
+    // Apply highlights directly as background-color on the spans themselves
     for (let i = 0; i < textSpans.length; i++) {
       const h = spanHighlights[i];
-      if (h.type === 'none') continue;
-
-      const span = textSpans[i];
-      const spanStyle = window.getComputedStyle(span);
-
-      const highlight = document.createElement('div');
-      highlight.className = `pdf-text-highlight ${h.type === 'yellow' ? 'referenced' : ''}`;
-      highlight.style.position = 'absolute';
-      highlight.style.left = spanStyle.left;
-      highlight.style.top = spanStyle.top;
-      highlight.style.width = `${span.offsetWidth}px`;
-      highlight.style.height = `${span.offsetHeight}px`;
-      highlight.style.backgroundColor = h.type === 'yellow'
+      if (h.type === 'none') {
+        textSpans[i].style.backgroundColor = '';
+        continue;
+      }
+      textSpans[i].style.backgroundColor = h.type === 'yellow'
         ? 'rgba(255, 235, 59, 0.4)'
         : `rgba(158, 158, 158, ${h.opacity})`;
-      highlight.style.pointerEvents = 'none';
-      highlight.style.zIndex = '1';
-
-      textLayer.appendChild(highlight);
+      textSpans[i].style.borderRadius = '2px';
     }
 
     console.log('Highlighting complete');
@@ -225,6 +247,26 @@ export default function PDFPreview({ fileUrl, chunks }: PDFPreviewProps) {
             <div className="chunks-list">
               {pageChunks.map((chunk, index) => {
                 const isHighlighted = highlightedChunkIds.includes(chunk.id);
+
+                // Remove overlap with previous chunk (same logic as Plain View)
+                let displayText = chunk.text;
+                if (index > 0) {
+                  const prevChunk = pageChunks[index - 1];
+                  const prevText = prevChunk.text;
+                  const maxOverlap = Math.min(300, prevText.length, displayText.length);
+                  for (let overlapLen = maxOverlap; overlapLen > 20; overlapLen--) {
+                    if (prevText.slice(-overlapLen) === displayText.slice(0, overlapLen)) {
+                      displayText = displayText.slice(overlapLen).trim();
+                      break;
+                    }
+                  }
+                }
+
+                if (!displayText) return null;
+
+                const isExpanded = expandedChunks.has(chunk.id);
+                const needsTruncation = displayText.length > 200;
+
                 return (
                   <div
                     key={chunk.id}
@@ -233,10 +275,28 @@ export default function PDFPreview({ fileUrl, chunks }: PDFPreviewProps) {
                   >
                     <div className="chunk-number">Chunk {index + 1}</div>
                     <div className="chunk-text">
-                      {chunk.text.length > 150
-                        ? chunk.text.slice(0, 150) + '...'
-                        : chunk.text}
+                      {needsTruncation && !isExpanded
+                        ? displayText.slice(0, 200) + '...'
+                        : displayText}
                     </div>
+                    {needsTruncation && (
+                      <button
+                        className="chunk-expand-btn"
+                        onClick={() => {
+                          setExpandedChunks(prev => {
+                            const next = new Set(prev);
+                            if (next.has(chunk.id)) {
+                              next.delete(chunk.id);
+                            } else {
+                              next.add(chunk.id);
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        {isExpanded ? 'Show less' : 'Show more'}
+                      </button>
+                    )}
                   </div>
                 );
               })}

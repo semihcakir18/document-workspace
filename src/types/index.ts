@@ -43,9 +43,11 @@ export interface ChatMessage {
 export interface Annotation {
   id: string;
   documentId: string;
+  chunkId?: string;
   type: 'highlight' | 'note' | 'tag';
   pageNumber: number;
   text: string;
+  selectedText?: string;
   note?: string;
   tags?: string[];
   color?: string;
